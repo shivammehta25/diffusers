@@ -47,9 +47,6 @@ class UNet1DModel(ModelMixin, ConfigMixin):
         sample_size (`int`, *optional*): Default length of sample. Should be adaptable at runtime.
         in_channels (`int`, *optional*, defaults to 2): Number of channels in the input sample.
         out_channels (`int`, *optional*, defaults to 2): Number of channels in the output.
-        extra_in_channels (`int`, *optional*, defaults to 0):
-            Number of additional channels to be added to the input of the first down block. Useful for cases where the
-            input data has more channels than what the model is initially designed for.
         time_embedding_type (`str`, *optional*, defaults to `"fourier"`): Type of time embedding to use.
         freq_shift (`float`, *optional*, defaults to 0.0): Frequency shift for fourier time embedding.
         flip_sin_to_cos (`bool`, *optional*, defaults to :
@@ -62,7 +59,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
             obj:`(32, 32, 64)`): Tuple of block output channels.
         mid_block_type (`str`, *optional*, defaults to "UNetMidBlock1D"): block type for middle of UNet.
         out_block_type (`str`, *optional*, defaults to `None`): optional output processing of UNet.
-        act_fn (`str`, *optional*, defaults to None): optional activation function in UNet blocks.
+        act_fn (`str`, *optional*, defaults to None): optional activitation function in UNet blocks.
         norm_num_groups (`int`, *optional*, defaults to 8): group norm member count in UNet blocks.
         layers_per_block (`int`, *optional*, defaults to 1): added number of layers in a UNet block.
         downsample_each_block (`int`, *optional*, defaults to False:
@@ -86,7 +83,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
         mid_block_type: Tuple[str] = "UNetMidBlock1D",
         out_block_type: str = None,
         block_out_channels: Tuple[int] = (32, 32, 64),
-        act_fn: str = None,
+        act_fn: str = 'silu',
         norm_num_groups: int = 8,
         layers_per_block: int = 1,
         downsample_each_block: bool = False,
@@ -97,7 +94,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
         # time
         if time_embedding_type == "fourier":
             self.time_proj = GaussianFourierProjection(
-                embedding_size=8, set_W_to_weight=False, log=False, flip_sin_to_cos=flip_sin_to_cos
+                embedding_size=block_out_channels[0], scale=16, set_W_to_weight=False, log=False, flip_sin_to_cos=flip_sin_to_cos
             )
             timestep_input_dim = 2 * block_out_channels[0]
         elif time_embedding_type == "positional":
@@ -112,7 +109,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
                 in_channels=timestep_input_dim,
                 time_embed_dim=time_embed_dim,
                 act_fn=act_fn,
-                out_dim=block_out_channels[0],
+                out_dim=in_channels
             )
 
         self.down_blocks = nn.ModuleList([])
@@ -198,7 +195,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
     ) -> Union[UNet1DOutput, Tuple]:
         r"""
         Args:
-            sample (`torch.FloatTensor`): `(batch_size, num_channels, sample_size)` noisy inputs tensor
+            sample (`torch.FloatTensor`): `(batch_size, sample_size, num_channels)` noisy inputs tensor
             timestep (`torch.FloatTensor` or `float` or `int): (batch) timesteps
             return_dict (`bool`, *optional*, defaults to `True`):
                 Whether or not to return a [`~models.unet_1d.UNet1DOutput`] instead of a plain tuple.
@@ -226,7 +223,7 @@ class UNet1DModel(ModelMixin, ConfigMixin):
         # 2. down
         down_block_res_samples = ()
         for downsample_block in self.down_blocks:
-            sample, res_samples = downsample_block(hidden_states=sample, temb=timestep_embed)
+            sample, res_samples = downsample_block(hidden_states=sample, temb=timestep_embed.unsqueeze(-1))
             down_block_res_samples += res_samples
 
         # 3. mid
