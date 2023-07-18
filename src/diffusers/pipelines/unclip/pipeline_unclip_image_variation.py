@@ -28,7 +28,7 @@ from transformers import (
 from ...models import UNet2DConditionModel, UNet2DModel
 from ...pipelines import DiffusionPipeline, ImagePipelineOutput
 from ...schedulers import UnCLIPScheduler
-from ...utils import is_accelerate_available, logging, randn_tensor
+from ...utils import logging, randn_tensor
 from .text_proj import UnCLIPTextProjModel
 
 
@@ -198,49 +198,6 @@ class UnCLIPImageVariationPipeline(DiffusionPipeline):
 
         return image_embeddings
 
-    def enable_sequential_cpu_offload(self, gpu_id=0):
-        r"""
-        Offloads all models to CPU using accelerate, significantly reducing memory usage. When called, the pipeline's
-        models have their state dicts saved to CPU and then are moved to a `torch.device('meta') and loaded to GPU only
-        when their specific submodule has its `forward` method called.
-        """
-        if is_accelerate_available():
-            from accelerate import cpu_offload
-        else:
-            raise ImportError("Please install accelerate via `pip install accelerate`")
-
-        device = torch.device(f"cuda:{gpu_id}")
-
-        models = [
-            self.decoder,
-            self.text_proj,
-            self.text_encoder,
-            self.super_res_first,
-            self.super_res_last,
-        ]
-        for cpu_offloaded_model in models:
-            if cpu_offloaded_model is not None:
-                cpu_offload(cpu_offloaded_model, device)
-
-    @property
-    # Copied from diffusers.pipelines.unclip.pipeline_unclip.UnCLIPPipeline._execution_device
-    def _execution_device(self):
-        r"""
-        Returns the device on which the pipeline's models will be executed. After calling
-        `pipeline.enable_sequential_cpu_offload()` the execution device can only be inferred from Accelerate's module
-        hooks.
-        """
-        if self.device != torch.device("meta") or not hasattr(self.decoder, "_hf_hook"):
-            return self.device
-        for module in self.decoder.modules():
-            if (
-                hasattr(module, "_hf_hook")
-                and hasattr(module._hf_hook, "execution_device")
-                and module._hf_hook.execution_device is not None
-            ):
-                return torch.device(module._hf_hook.execution_device)
-        return self.device
-
     @torch.no_grad()
     def __call__(
         self,
@@ -339,9 +296,9 @@ class UnCLIPImageVariationPipeline(DiffusionPipeline):
         self.decoder_scheduler.set_timesteps(decoder_num_inference_steps, device=device)
         decoder_timesteps_tensor = self.decoder_scheduler.timesteps
 
-        num_channels_latents = self.decoder.in_channels
-        height = self.decoder.sample_size
-        width = self.decoder.sample_size
+        num_channels_latents = self.decoder.config.in_channels
+        height = self.decoder.config.sample_size
+        width = self.decoder.config.sample_size
 
         if decoder_latents is None:
             decoder_latents = self.prepare_latents(
@@ -393,9 +350,9 @@ class UnCLIPImageVariationPipeline(DiffusionPipeline):
         self.super_res_scheduler.set_timesteps(super_res_num_inference_steps, device=device)
         super_res_timesteps_tensor = self.super_res_scheduler.timesteps
 
-        channels = self.super_res_first.in_channels // 2
-        height = self.super_res_first.sample_size
-        width = self.super_res_first.sample_size
+        channels = self.super_res_first.config.in_channels // 2
+        height = self.super_res_first.config.sample_size
+        width = self.super_res_first.config.sample_size
 
         if super_res_latents is None:
             super_res_latents = self.prepare_latents(

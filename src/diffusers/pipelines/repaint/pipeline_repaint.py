@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import warnings
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -30,6 +31,11 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img.preprocess
 def _preprocess_image(image: Union[List, PIL.Image.Image, torch.Tensor]):
+    warnings.warn(
+        "The preprocess method is deprecated and will be removed in a future version. Please"
+        " use VaeImageProcessor.preprocess instead",
+        FutureWarning,
+    )
     if isinstance(image, torch.Tensor):
         return image
     elif isinstance(image, PIL.Image.Image):
@@ -126,9 +132,9 @@ class RePaintPipeline(DiffusionPipeline):
         original_image = image
 
         original_image = _preprocess_image(original_image)
-        original_image = original_image.to(device=self.device, dtype=self.unet.dtype)
+        original_image = original_image.to(device=self._execution_device, dtype=self.unet.dtype)
         mask_image = _preprocess_mask(mask_image)
-        mask_image = mask_image.to(device=self.device, dtype=self.unet.dtype)
+        mask_image = mask_image.to(device=self._execution_device, dtype=self.unet.dtype)
 
         batch_size = original_image.shape[0]
 
@@ -140,10 +146,10 @@ class RePaintPipeline(DiffusionPipeline):
             )
 
         image_shape = original_image.shape
-        image = randn_tensor(image_shape, generator=generator, device=self.device, dtype=self.unet.dtype)
+        image = randn_tensor(image_shape, generator=generator, device=self._execution_device, dtype=self.unet.dtype)
 
         # set step values
-        self.scheduler.set_timesteps(num_inference_steps, jump_length, jump_n_sample, self.device)
+        self.scheduler.set_timesteps(num_inference_steps, jump_length, jump_n_sample, self._execution_device)
         self.scheduler.eta = eta
 
         t_last = self.scheduler.timesteps[0] + 1

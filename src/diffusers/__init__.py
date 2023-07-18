@@ -1,10 +1,11 @@
-__version__ = "0.15.0.dev0"
+__version__ = "0.19.0.dev0"
 
 from .configuration_utils import ConfigMixin
 from .utils import (
     OptionalDependencyNotAvailable,
     is_flax_available,
     is_inflect_available,
+    is_invisible_watermark_available,
     is_k_diffusion_available,
     is_k_diffusion_version,
     is_librosa_available,
@@ -12,6 +13,7 @@ from .utils import (
     is_onnx_available,
     is_scipy_available,
     is_torch_available,
+    is_torchsde_available,
     is_transformers_available,
     is_transformers_version,
     is_unidecode_available,
@@ -37,7 +39,9 @@ else:
         AutoencoderKL,
         ControlNetModel,
         ModelMixin,
+        MultiAdapter,
         PriorTransformer,
+        T2IAdapter,
         T5FilmDecoder,
         Transformer2DModel,
         UNet1DModel,
@@ -57,6 +61,7 @@ else:
     )
     from .pipelines import (
         AudioPipelineOutput,
+        ConsistencyModelPipeline,
         DanceDiffusionPipeline,
         DDIMPipeline,
         DDPMPipeline,
@@ -71,10 +76,14 @@ else:
         ScoreSdeVePipeline,
     )
     from .schedulers import (
+        CMStochasticIterativeScheduler,
         DDIMInverseScheduler,
+        DDIMParallelScheduler,
         DDIMScheduler,
+        DDPMParallelScheduler,
         DDPMScheduler,
         DEISMultistepScheduler,
+        DPMSolverMultistepInverseScheduler,
         DPMSolverMultistepScheduler,
         DPMSolverSinglestepScheduler,
         EulerAncestralDiscreteScheduler,
@@ -102,6 +111,13 @@ except OptionalDependencyNotAvailable:
 else:
     from .schedulers import LMSDiscreteScheduler
 
+try:
+    if not (is_torch_available() and is_torchsde_available()):
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    from .utils.dummy_torch_and_torchsde_objects import *  # noqa F403
+else:
+    from .schedulers import DPMSolverSDEScheduler
 
 try:
     if not (is_torch_available() and is_transformers_available()):
@@ -109,26 +125,51 @@ try:
 except OptionalDependencyNotAvailable:
     from .utils.dummy_torch_and_transformers_objects import *  # noqa F403
 else:
-    from .loaders import TextualInversionLoaderMixin
     from .pipelines import (
         AltDiffusionImg2ImgPipeline,
         AltDiffusionPipeline,
         AudioLDMPipeline,
         CycleDiffusionPipeline,
+        IFImg2ImgPipeline,
+        IFImg2ImgSuperResolutionPipeline,
+        IFInpaintingPipeline,
+        IFInpaintingSuperResolutionPipeline,
+        IFPipeline,
+        IFSuperResolutionPipeline,
+        ImageTextPipelineOutput,
+        KandinskyImg2ImgPipeline,
+        KandinskyInpaintPipeline,
+        KandinskyPipeline,
+        KandinskyPriorPipeline,
+        KandinskyV22ControlnetImg2ImgPipeline,
+        KandinskyV22ControlnetPipeline,
+        KandinskyV22Img2ImgPipeline,
+        KandinskyV22InpaintPipeline,
+        KandinskyV22Pipeline,
+        KandinskyV22PriorEmb2EmbPipeline,
+        KandinskyV22PriorPipeline,
         LDMTextToImagePipeline,
         PaintByExamplePipeline,
         SemanticStableDiffusionPipeline,
+        ShapEImg2ImgPipeline,
+        ShapEPipeline,
+        StableDiffusionAdapterPipeline,
         StableDiffusionAttendAndExcitePipeline,
+        StableDiffusionControlNetImg2ImgPipeline,
+        StableDiffusionControlNetInpaintPipeline,
         StableDiffusionControlNetPipeline,
         StableDiffusionDepth2ImgPipeline,
+        StableDiffusionDiffEditPipeline,
         StableDiffusionImageVariationPipeline,
         StableDiffusionImg2ImgPipeline,
         StableDiffusionInpaintPipeline,
         StableDiffusionInpaintPipelineLegacy,
         StableDiffusionInstructPix2PixPipeline,
         StableDiffusionLatentUpscalePipeline,
+        StableDiffusionLDM3DPipeline,
         StableDiffusionModelEditingPipeline,
         StableDiffusionPanoramaPipeline,
+        StableDiffusionParadigmsPipeline,
         StableDiffusionPipeline,
         StableDiffusionPipelineSafe,
         StableDiffusionPix2PixZeroPipeline,
@@ -140,11 +181,28 @@ else:
         TextToVideoZeroPipeline,
         UnCLIPImageVariationPipeline,
         UnCLIPPipeline,
+        UniDiffuserModel,
+        UniDiffuserPipeline,
+        UniDiffuserTextDecoder,
         VersatileDiffusionDualGuidedPipeline,
         VersatileDiffusionImageVariationPipeline,
         VersatileDiffusionPipeline,
         VersatileDiffusionTextToImagePipeline,
+        VideoToVideoSDPipeline,
         VQDiffusionPipeline,
+    )
+
+try:
+    if not (is_torch_available() and is_transformers_available() and is_invisible_watermark_available()):
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    from .utils.dummy_torch_and_transformers_and_invisible_watermark_objects import *  # noqa F403
+else:
+    from .pipelines import (
+        StableDiffusionXLControlNetPipeline,
+        StableDiffusionXLImg2ImgPipeline,
+        StableDiffusionXLInpaintPipeline,
+        StableDiffusionXLPipeline,
     )
 
 try:
