@@ -230,7 +230,7 @@ class Snake(nn.Module):
         >>> x = torch.randn(256)
         >>> x = a1(x)
     '''
-    def __init__(self, in_features, a=None, trainable=True):
+    def __init__(self, in_features, out_features, a=None, trainable=True):
         '''
         Initialization.
         Args:
@@ -245,7 +245,7 @@ class Snake(nn.Module):
         '''
         super(Snake,self).__init__()
         self.in_features = in_features if isinstance(in_features, list) else [in_features]
-
+        self.proj = LoRACompatibleLinear(in_features, out_features)
         # Initialize `a`
         if a is not None:
             self.a = nn.Parameter(torch.ones(self.in_features) * a) # create a tensor out of alpha
@@ -261,6 +261,7 @@ class Snake(nn.Module):
         Applies the function to the input elementwise.
         Snake ∶= x + 1/a* sin^2 (xa)
         '''
+        x = self.proj(x)
         return  x + (1.0/self.a) * torch.pow(torch.sin(x * self.a), 2)
 
 
@@ -299,7 +300,7 @@ class FeedForward(nn.Module):
         elif activation_fn == "geglu-approximate":
             act_fn = ApproximateGELU(dim, inner_dim)
         elif activation_fn == "snake":
-            act_fn = Snake(inner_dim)
+            act_fn = Snake(dim, inner_dim)
 
         self.net = nn.ModuleList([])
         # project in
