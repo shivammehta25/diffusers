@@ -298,7 +298,7 @@ class FeedForward(nn.Module):
         elif activation_fn == "geglu-approximate":
             act_fn = ApproximateGELU(dim, inner_dim)
         elif activation_fn == "snake":
-            act_fn = Snake(dim)
+            act_fn = Snake(inner_dim)
 
         self.net = nn.ModuleList([])
         # project in
