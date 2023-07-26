@@ -19,6 +19,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from ..configuration_utils import ConfigMixin, register_to_config
+from ..loaders import FromOriginalControlnetMixin
 from ..utils import BaseOutput, logging
 from .attention_processor import AttentionProcessor, AttnProcessor
 from .embeddings import TextImageProjection, TextImageTimeEmbedding, TextTimeEmbedding, TimestepEmbedding, Timesteps
@@ -100,7 +101,7 @@ class ControlNetConditioningEmbedding(nn.Module):
         return embedding
 
 
-class ControlNetModel(ModelMixin, ConfigMixin):
+class ControlNetModel(ModelMixin, ConfigMixin, FromOriginalControlnetMixin):
     """
     A ControlNet model.
 
@@ -750,7 +751,6 @@ class ControlNetModel(ModelMixin, ConfigMixin):
         sample = self.conv_in(sample)
 
         controlnet_cond = self.controlnet_cond_embedding(controlnet_cond)
-
         sample = sample + controlnet_cond
 
         # 3. down
