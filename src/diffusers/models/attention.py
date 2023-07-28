@@ -340,11 +340,10 @@ class SnakeBeta(nn.Module):
         SnakeBeta ∶= x + 1/b * sin^2 (xa)
         '''
         x = self.proj(x)
-        alpha = self.alpha.unsqueeze(0).unsqueeze(-1) # line up with x to [B, C, T]
-        beta = self.beta.unsqueeze(0).unsqueeze(-1)
         if self.alpha_logscale:
             alpha = torch.exp(alpha)
             beta = torch.exp(beta)
+
         x = x + (1.0 / (beta + self.no_div_by_zero)) * torch.pow(torch.sin(x * alpha), 2)
 
         return x
