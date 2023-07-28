@@ -265,6 +265,87 @@ class Snake(nn.Module):
         """
         x = self.proj(x)
         return x + (1.0 / self.a) * torch.pow(torch.sin(x * self.a), 2)
+    
+    
+class Mish(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(Mish, self).__init__()
+        self.in_features = out_features if isinstance(out_features, list) else [out_features]
+        self.proj = LoRACompatibleLinear(in_features, out_features)
+        
+    def mish(self, x):
+        if x.device.type != "mps":
+            # Mish is currently not implemented for mps backend
+            return x * torch.tanh(F.softplus(x))
+        
+        return F.mish(x)
+    
+    def forward(self, x):
+        x = self.proj(x)
+        return x
+    
+    
+class SnakeBeta(nn.Module):
+    '''
+    A modified Snake function which uses separate parameters for the magnitude of the periodic components
+    Shape:
+        - Input: (B, C, T)
+        - Output: (B, C, T), same shape as the input
+    Parameters:
+        - alpha - trainable parameter that controls frequency
+        - beta - trainable parameter that controls magnitude
+    References:
+        - This activation function is a modified version based on this paper by Liu Ziyin, Tilman Hartwig, Masahito Ueda:
+        https://arxiv.org/abs/2006.08195
+    Examples:
+        >>> a1 = snakebeta(256)
+        >>> x = torch.randn(256)
+        >>> x = a1(x)
+    '''
+    def __init__(self, in_features, out_features, alpha=1.0, alpha_trainable=True, alpha_logscale=False):
+        '''
+        Initialization.
+        INPUT:
+            - in_features: shape of the input
+            - alpha - trainable parameter that controls frequency
+            - beta - trainable parameter that controls magnitude
+            alpha is initialized to 1 by default, higher values = higher-frequency.
+            beta is initialized to 1 by default, higher values = higher-magnitude.
+            alpha will be trained along with the rest of your model.
+        '''
+        super(SnakeBeta, self).__init__()
+        self.in_features = out_features if isinstance(out_features, list) else [out_features]
+        self.proj = LoRACompatibleLinear(in_features, out_features)
+
+        # initialize alpha
+        self.alpha_logscale = alpha_logscale
+        if self.alpha_logscale: # log scale alphas initialized to zeros
+            self.alpha = nn.Parameter(torch.zeros(self.in_features) * alpha)
+            self.beta = nn.Parameter(torch.zeros(self.in_features) * alpha)
+        else: # linear scale alphas initialized to ones
+            self.alpha = nn.Parameter(torch.ones(self.in_features) * alpha)
+            self.beta = nn.Parameter(torch.ones(self.in_features) * alpha)
+
+        self.alpha.requires_grad = alpha_trainable
+        self.beta.requires_grad = alpha_trainable
+
+        self.no_div_by_zero = 0.000000001
+
+    def forward(self, x):
+        '''
+        Forward pass of the function.
+        Applies the function to the input elementwise.
+        SnakeBeta ∶= x + 1/b * sin^2 (xa)
+        '''
+        x = self.proj(x)
+        alpha = self.alpha.unsqueeze(0).unsqueeze(-1) # line up with x to [B, C, T]
+        beta = self.beta.unsqueeze(0).unsqueeze(-1)
+        if self.alpha_logscale:
+            alpha = torch.exp(alpha)
+            beta = torch.exp(beta)
+        x = x + (1.0 / (beta + self.no_div_by_zero)) * torch.pow(torch.sin(x * alpha), 2)
+
+        return x
 
 
 class FeedForward(nn.Module):
@@ -303,6 +384,10 @@ class FeedForward(nn.Module):
             act_fn = ApproximateGELU(dim, inner_dim)
         elif activation_fn == "snake":
             act_fn = Snake(dim, inner_dim)
+        elif activation_fn == "snakebeta":
+            act_fn = SnakeBeta(dim, inner_dim)
+        elif activation_fn == "mish":
+            act_fn = Mish(dim, inner_dim)
 
         self.net = nn.ModuleList([])
         # project in
