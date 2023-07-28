@@ -156,7 +156,7 @@ class BasicTransformerBlock(nn.Module):
         attn_output = self.attn1(
             norm_hidden_states,
             encoder_hidden_states=encoder_hidden_states if self.only_cross_attention else None,
-            attention_mask=attention_mask,
+            attention_mask=encoder_attention_mask if self.only_cross_attention else attention_mask,
             **cross_attention_kwargs,
         )
         if self.use_ada_layer_norm_zero:
@@ -258,7 +258,6 @@ class Snake(nn.Module):
         self.a.requiresGrad = trainable  # set the training of `a` to true
         self.no_div_by_zero = 0.000000001
 
-
     def forward(self, x):
         """
         Forward pass of the function.
@@ -267,28 +266,28 @@ class Snake(nn.Module):
         """
         x = self.proj(x)
         return x + (1.0 / self.a + self.no_div_by_zero) * torch.pow(torch.sin(x * self.a), 2)
-    
-    
+
+
 class Mish(nn.Module):
     def __init__(self, in_features, out_features):
         super(Mish, self).__init__()
         self.in_features = out_features if isinstance(out_features, list) else [out_features]
         self.proj = LoRACompatibleLinear(in_features, out_features)
-        
+
     def mish(self, x):
         if x.device.type != "mps":
             # Mish is currently not implemented for mps backend
             return x * torch.tanh(F.softplus(x))
-        
+
         return F.mish(x)
-    
+
     def forward(self, x):
         x = self.proj(x)
         return x
-    
-    
+
+
 class SnakeBeta(nn.Module):
-    '''
+    """
     A modified Snake function which uses separate parameters for the magnitude of the periodic components
     Shape:
         - Input: (B, C, T)
@@ -303,9 +302,10 @@ class SnakeBeta(nn.Module):
         >>> a1 = snakebeta(256)
         >>> x = torch.randn(256)
         >>> x = a1(x)
-    '''
+    """
+
     def __init__(self, in_features, out_features, alpha=1.0, alpha_trainable=True, alpha_logscale=False):
-        '''
+        """
         Initialization.
         INPUT:
             - in_features: shape of the input
@@ -314,17 +314,17 @@ class SnakeBeta(nn.Module):
             alpha is initialized to 1 by default, higher values = higher-frequency.
             beta is initialized to 1 by default, higher values = higher-magnitude.
             alpha will be trained along with the rest of your model.
-        '''
+        """
         super(SnakeBeta, self).__init__()
         self.in_features = out_features if isinstance(out_features, list) else [out_features]
         self.proj = LoRACompatibleLinear(in_features, out_features)
 
         # initialize alpha
         self.alpha_logscale = alpha_logscale
-        if self.alpha_logscale: # log scale alphas initialized to zeros
+        if self.alpha_logscale:  # log scale alphas initialized to zeros
             self.alpha = nn.Parameter(torch.zeros(self.in_features) * alpha)
             self.beta = nn.Parameter(torch.zeros(self.in_features) * alpha)
-        else: # linear scale alphas initialized to ones
+        else:  # linear scale alphas initialized to ones
             self.alpha = nn.Parameter(torch.ones(self.in_features) * alpha)
             self.beta = nn.Parameter(torch.ones(self.in_features) * alpha)
 
@@ -334,11 +334,11 @@ class SnakeBeta(nn.Module):
         self.no_div_by_zero = 0.000000001
 
     def forward(self, x):
-        '''
+        """
         Forward pass of the function.
         Applies the function to the input elementwise.
         SnakeBeta ∶= x + 1/b * sin^2 (xa)
-        '''
+        """
         x = self.proj(x)
         if self.alpha_logscale:
             alpha = torch.exp(alpha)
