@@ -256,6 +256,8 @@ class Snake(nn.Module):
             self.a = nn.Parameter((m.rsample(self.in_features)).squeeze())  # random init = mix of frequencies
 
         self.a.requiresGrad = trainable  # set the training of `a` to true
+        self.no_div_by_zero = 0.000000001
+
 
     def forward(self, x):
         """
@@ -264,7 +266,7 @@ class Snake(nn.Module):
         Snake ∶= x + 1/a* sin^2 (xa)
         """
         x = self.proj(x)
-        return x + (1.0 / self.a) * torch.pow(torch.sin(x * self.a), 2)
+        return x + (1.0 / self.a + self.no_div_by_zero) * torch.pow(torch.sin(x * self.a), 2)
     
     
 class Mish(nn.Module):
