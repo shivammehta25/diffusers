@@ -304,7 +304,7 @@ class SnakeBeta(nn.Module):
         >>> x = a1(x)
     """
 
-    def __init__(self, in_features, out_features, alpha=1.0, alpha_trainable=True, alpha_logscale=False):
+    def __init__(self, in_features, out_features, alpha=1.0, alpha_trainable=True, alpha_logscale=True):
         """
         Initialization.
         INPUT:
@@ -341,8 +341,11 @@ class SnakeBeta(nn.Module):
         """
         x = self.proj(x)
         if self.alpha_logscale:
-            alpha = torch.exp(alpha)
-            beta = torch.exp(beta)
+            alpha = torch.exp(self.alpha)
+            beta = torch.exp(self.beta)
+        else:
+            alpha = self.alpha
+            beta = self.beta
 
         x = x + (1.0 / (beta + self.no_div_by_zero)) * torch.pow(torch.sin(x * alpha), 2)
 
