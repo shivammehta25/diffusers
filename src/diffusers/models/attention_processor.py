@@ -86,7 +86,7 @@ class Attention(nn.Module):
         self._from_deprecated_attn_block = _from_deprecated_attn_block
 
         self.scale_qk = scale_qk
-        self.scale = dim_head**-0.5 if self.scale_qk else 1.0
+        self.scale = dim_head**-0.5 # if self.scale_qk else 1.0
 
         self.heads = heads
         # for slice_size > 0 the attention score computation
@@ -445,6 +445,17 @@ class AttnProcessor:
     Default processor for performing attention-related computations.
     """
 
+    def save_last_attention_prob(self, attention_probs, batch_size):
+        self.last_attention_prob = (
+            attention_probs.clone().detach().view(batch_size, -1, attention_probs.shape[-2], attention_probs.shape[-1])
+        )
+
+    def get_last_attention_prob(self):
+        if hasattr(self, "last_attention_prob"):
+            return self.last_attention_prob
+        else:
+            logger.warning("Attention probabilities are not saved. so returning None")
+
     def __call__(
         self,
         attn: Attention,
@@ -489,6 +500,8 @@ class AttnProcessor:
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
         hidden_states = torch.bmm(attention_probs, value)
         hidden_states = attn.batch_to_head_dim(hidden_states)
+
+        self.save_last_attention_prob(attention_probs, batch_size)
 
         # linear proj
         hidden_states = attn.to_out[0](hidden_states)
