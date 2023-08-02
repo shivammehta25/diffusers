@@ -112,7 +112,7 @@ class BasicTransformerBlock(nn.Module):
                 dropout=dropout,
                 bias=attention_bias,
                 upcast_attention=upcast_attention,
-                scale_qk=False, # TODO: temporary fix to get attention matrix
+                # scale_qk=False, # uncomment this to not to use flash attention 
             )  # is self-attn if encoder_hidden_states is none
         else:
             self.norm2 = None
